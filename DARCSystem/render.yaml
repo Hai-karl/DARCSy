@@ -1,0 +1,31 @@
+# Render Blueprint: Dashboard > New > Blueprint > pick this repository.
+# Free web services sleep after about 15 minutes without traffic and have a temporary disk.
+services:
+  - type: web
+    name: defect-qc-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && python -m defect_analysis.train_model
+    startCommand: gunicorn --preload --workers 2 --timeout 120 --bind 0.0.0.0:$PORT 'backend.app:create_app()'
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: APP_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: ML_TREES
+        value: "60"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL          # paste the TiDB (or other MySQL) connection string in the dashboard
+        sync: false
+      - key: CORS_ORIGINS          # your frontend URL, e.g. https://defect-qc.vercel.app (no trailing slash)
+        sync: false
+      - key: BOOTSTRAP_ADMIN_USERNAME
+        sync: false
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD   # delete this variable after the first successful start
+        sync: false

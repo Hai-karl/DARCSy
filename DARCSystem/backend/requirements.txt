@@ -1,0 +1,2 @@
+# Kept so older instructions still work: installs everything from the project root.
+-r ../requirements.txt

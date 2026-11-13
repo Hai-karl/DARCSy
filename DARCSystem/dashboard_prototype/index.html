@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Defect Trend Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#edf1f3;--sf:#fff;--ink:#14272e;--mu:#5b6f77;--ln:#cfd9de;--ac:#0f6e78;--sg:#d9610f;--ok:#2b8a5a;--ac2:#9fc9ce;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a1e;--sf:#16252b;--ink:#e6eef0;--mu:#93a8b0;--ln:#2a3d45;--ac:#4fc3cf;--sg:#ff9a4d;--ok:#5fd09a;--ac2:#2c5b61}}
+:root[data-theme="dark"]{--bg:#0f1a1e;--sf:#16252b;--ink:#e6eef0;--mu:#93a8b0;--ln:#2a3d45;--ac:#4fc3cf;--sg:#ff9a4d;--ok:#5fd09a;--ac2:#2c5b61}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 Barlow,system-ui,sans-serif}
+.w{max-width:1120px;margin:0 auto;padding:20px 18px 48px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1,h2,.n{font-family:"Barlow Semi Condensed",Barlow,sans-serif;margin:0}
+h1{font-size:20px;font-weight:600}h2{font-size:17px;font-weight:600}
+.mu{color:var(--mu)}.sm{font-size:13px}
+select,button,input{font:inherit;color:var(--ink)}
+select,input{background:var(--sf);border:1px solid var(--ln);border-radius:6px;padding:6px 10px}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 14px;align-items:center}
+.seg{display:flex;border:1px solid var(--ln);border-radius:6px;overflow:hidden;background:var(--sf)}
+.seg button{border:0;background:none;padding:6px 14px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--ac);color:var(--sf);font-weight:600}
+.hero{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:22px 22px 14px}
+.hero .n{font-size:clamp(26px,4.6vw,40px);font-weight:700;line-height:1.1;max-width:20ch}
+.hero .n b{color:var(--sg);font-weight:700}
+.cv{position:relative;width:100%;margin-top:14px}
+.stats{display:flex;flex-wrap:wrap;margin:16px 0 0;border-top:1px solid var(--ln)}
+.stats div{flex:1 1 150px;padding:12px 0 2px}.stats .n{font-size:24px;font-weight:600}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+@media (max-width:760px){.g{grid-template-columns:1fr}.hero{padding:16px}}
+.p{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:18px}
+.p header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.br{display:grid;grid-template-columns:130px 1fr 52px;gap:10px;align-items:center;margin:9px 0;font-size:14px}
+.br i{display:block;height:8px;border-radius:4px;background:var(--ac)}
+.br i.s{background:var(--sg)}.br span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px;min-width:620px}
+th{font-weight:500;color:var(--mu);text-align:left;padding:6px 8px;border-bottom:1px solid var(--ln)}
+td{padding:9px 8px;border-bottom:1px solid var(--ln);vertical-align:top}
+.cf{display:inline-block;height:6px;border-radius:3px;background:var(--ac);vertical-align:middle;margin-right:6px}
+.btn{background:var(--ac);color:var(--sf);border:0;border-radius:6px;padding:8px 16px;font-weight:600;cursor:pointer}
+.f{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.f label{display:grid;gap:3px;font-size:13px;color:var(--mu)}
+.f input{width:110px}.msg{margin-top:10px;font-size:14px}.msg.e{color:var(--sg)}.msg.k{color:var(--ok)}
+.lock{padding:40px 24px;text-align:center}
+</style></head><body><div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const D={"weekly":{"All":[["11 Jan",13588,147],["18 Jan",13516,143],["25 Jan",13260,144],["01 Feb",13576,171],["08 Feb",13340,178],["15 Feb",13244,174],["22 Feb",13788,156],["01 Mar",13380,154],["08 Mar",13756,184],["15 Mar",13252,173],["22 Mar",13152,148],["29 Mar",13876,169],["05 Apr",13320,190],["12 Apr",13780,193],["19 Apr",13200,155],["26 Apr",13356,201],["03 May",13368,209],["10 May",13204,198],["17 May",13864,206],["24 May",12944,182],["31 May",13080,228],["07 Jun",13412,231],["14 Jun",13184,235],["21 Jun",13264,241],["28 Jun",12996,261],["05 Jul",11028,223]],"Line A":[["11 Jan",4504,38],["18 Jan",4444,30],["25 Jan",4180,45],["01 Feb",4504,53],["08 Feb",4488,56],["15 Feb",4292,57],["22 Feb",4540,46],["01 Mar",4592,47],["08 Mar",4480,59],["15 Mar",4548,46],["22 Mar",4188,44],["29 Mar",4880,46],["05 Apr",4256,52],["12 Apr",4804,64],["19 Apr",4596,44],["26 Apr",4440,60],["03 May",4380,55],["10 May",4528,67],["17 May",4760,58],["24 May",4364,52],["31 May",4452,69],["07 Jun",4560,62],["14 Jun",4316,73],["21 Jun",4476,83],["28 Jun",4152,72],["05 Jul",3452,67]],"Line B":[["11 Jan",4424,65],["18 Jan",4504,64],["25 Jan",4288,66],["01 Feb",4528,65],["08 Feb",4448,69],["15 Feb",4540,77],["22 Feb",4592,70],["01 Mar",4468,70],["08 Mar",4560,78],["15 Mar",4376,84],["22 Mar",4440,58],["29 Mar",4468,67],["05 Apr",4456,76],["12 Apr",4624,79],["19 Apr",4092,76],["26 Apr",4600,81],["03 May",4656,81],["10 May",4208,67],["17 May",4616,106],["24 May",4512,86],["31 May",4348,86],["07 Jun",4500,100],["14 Jun",4452,89],["21 Jun",4236,95],["28 Jun",4200,117],["05 Jul",3632,89]],"Line C":[["11 Jan",4660,44],["18 Jan",4568,49],["25 Jan",4792,33],["01 Feb",4544,53],["08 Feb",4404,53],["15 Feb",4412,40],["22 Feb",4656,40],["01 Mar",4320,37],["08 Mar",4716,47],["15 Mar",4328,43],["22 Mar",4524,46],["29 Mar",4528,56],["05 Apr",4608,62],["12 Apr",4352,50],["19 Apr",4512,35],["26 Apr",4316,60],["03 May",4332,73],["10 May",4468,64],["17 May",4488,42],["24 May",4068,44],["31 May",4280,73],["07 Jun",4352,69],["14 Jun",4416,73],["21 Jun",4552,63],["28 Jun",4644,72],["05 Jul",3944,67]]},"pareto":{"All":{"Dent":1576,"Scratch":1210,"Misalignment":1117,"Corrosion":692,"Crack":299},"Line A":{"Dent":396,"Scratch":372,"Misalignment":320,"Corrosion":245,"Crack":112},"Line B":{"Dent":743,"Scratch":509,"Misalignment":491,"Corrosion":222,"Crack":96},"Line C":{"Dent":437,"Scratch":329,"Misalignment":306,"Corrosion":225,"Crack":91}},"machine":{"All":{"M-03":1250,"M-04":811,"M-06":740,"M-02":727,"M-01":718,"M-05":648},"Line A":{"M-02":727,"M-01":718},"Line B":{"M-03":1250,"M-04":811},"Line C":{"M-06":740,"M-05":648}},"corr":[["machine_age_months",0.164,true],["humidity",0.104,true],["temperature",-0.007,false]],"acc":0.629,"imp":[["defect_type_Crack",0.404],["defect_type_Corrosion",0.376],["defect_type_Scratch",0.091],["defect_type_Misalignment",0.074],["humidity",0.038],["temperature",0.013]],"pred":[{"date":"03 Jul","line":"Line A","machine":"M-01","shift":"Night","defect":"Misalignment","hum":38.9,"s":[["Man",0.64],["Machine",0.36],["Material",0.0]]},{"date":"02 Jul","line":"Line A","machine":"M-02","shift":"Night","defect":"Corrosion","hum":75.1,"s":[["Environment",0.93],["Material",0.07],["Man",0.0]]},{"date":"02 Jul","line":"Line A","machine":"M-01","shift":"Morning","defect":"Scratch","hum":62.4,"s":[["Machine",0.4],["Man",0.32],["Environment",0.28]]},{"date":"03 Jul","line":"Line C","machine":"M-06","shift":"Evening","defect":"Corrosion","hum":58.7,"s":[["Environment",0.68],["Material",0.32],["Man",0.0]]},{"date":"02 Jul","line":"Line C","machine":"M-06","shift":"Night","defect":"Dent","hum":58.3,"s":[["Machine",0.47],["Man",0.28],["Material",0.25]]},{"date":"02 Jul","line":"Line B","machine":"M-04","shift":"Morning","defect":"Misalignment","hum":63.8,"s":[["Man",0.64],["Machine",0.36],["Material",0.0]]}]};
+const {useState,useEffect,useRef,useMemo}=React,h=React.createElement;
+const PERM={"QC Engineer":["record:create","dashboard:view","rootcause:predict"],"Line Supervisor":["dashboard:view","rootcause:predict"],"Quality Manager":["dashboard:view","rootcause:predict","rootcause:train"],"IT Administrator":["user:manage"]};
+const pct=(v,d=1)=>(v*100).toFixed(d)+"%";
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function useTheme(){const[t,s]=useState(0);useEffect(()=>{const m=matchMedia("(prefers-color-scheme: dark)"),f=()=>s(x=>x+1);m.addEventListener("change",f);return()=>m.removeEventListener("change",f)},[]);return t}
+function Cv({cfg,height}){const r=useRef(),t=useTheme();
+ useEffect(()=>{const c=new Chart(r.current,cfg());return()=>c.destroy()},[cfg,t]);
+ return h("div",{className:"cv",style:{height}},h("canvas",{ref:r}))}
+const base=(yfmt,y2)=>{const mu=css("--mu"),ln=css("--ln");return{maintainAspectRatio:false,animation:false,interaction:{mode:"index",intersect:false},
+ plugins:{legend:{display:false}},scales:{x:{ticks:{color:mu,maxTicksLimit:8},grid:{display:false}},
+ y:{ticks:{color:mu,callback:yfmt},grid:{color:ln},beginAtZero:true},...(y2?{y2:{position:"right",min:0,max:100,ticks:{color:mu,callback:v=>v+"%"},grid:{display:false}}}:{})}}};
+const label=f=>f.replace("defect_type_","Defect: ").replace("machine_id_","Machine ").replace("shift_","Shift ").replace(/_/g," ").replace(/^./,c=>c.toUpperCase());
+
+function App(){
+ const[role,setRole]=useState("Quality Manager"),[line,setLine]=useState("All"),[win,setWin]=useState(0),[pv,setPv]=useState("defect"),[added,setAdded]=useState([]);
+ const can=p=>PERM[role].includes(p);
+ const weeks=useMemo(()=>{const w=D.weekly[line].map(r=>r.slice()),l=w[w.length-1];
+  added.forEach(a=>{if(line==="All"||a.line===line){l[1]+=a.units;l[2]+=a.defects}});return win?w.slice(-win):w},[line,win,added]);
+ const s=useMemo(()=>{const U=weeks.reduce((a,r)=>a+r[1],0),F=weeks.reduce((a,r)=>a+r[2],0),pb=F/U;
+  const rows=weeks.map(r=>{const p=r[2]/r[1],se=Math.sqrt(pb*(1-pb)/r[1]);return{l:r[0],p,u:pb+3*se,lo:Math.max(0,pb-3*se)}});
+  const n=rows.length,mx=(n-1)/2,my=rows.reduce((a,r)=>a+r.p,0)/n;let sxy=0,sxx=0;rows.forEach((r,i)=>{sxy+=(i-mx)*(r.p-my);sxx+=(i-mx)**2});
+  const ch=n>1?sxy/sxx*(n-1):0;
+  return{U,F,pb,rows,n,ooc:rows.filter(r=>r.p>r.u||r.p<r.lo).length,ch,last:rows[n-1].p}},[weeks]);
+ const pchart=useMemo(()=>()=>({type:"line",data:{labels:s.rows.map(r=>r.l),datasets:[
+  {data:s.rows.map(r=>r.p),borderColor:css("--ac"),borderWidth:2,tension:.2,pointRadius:s.rows.map(r=>r.p>r.u?5:2.5),
+   pointBackgroundColor:s.rows.map(r=>r.p>r.u?css("--sg"):css("--ac")),pointBorderColor:s.rows.map(r=>r.p>r.u?css("--sg"):css("--ac"))},
+  {data:s.rows.map(r=>r.u),borderColor:css("--sg"),borderDash:[6,4],borderWidth:1.2,pointRadius:0},
+  {data:s.rows.map(()=>s.pb),borderColor:css("--mu"),borderWidth:1,pointRadius:0},
+  {data:s.rows.map(r=>r.lo),borderColor:css("--sg"),borderDash:[6,4],borderWidth:1.2,pointRadius:0}]},
+  options:base(v=>pct(v))}),[s]);
+ const par=useMemo(()=>{const src=pv==="defect"?D.pareto[line]:D.machine[line],e=Object.entries(src),T=e.reduce((a,x)=>a+x[1],0);let c=0;
+  return e.map(([k,v])=>{const before=c;c+=v;return{k,v,pc:v/T,cum:c/T*100,few:before/T<.8}})},[line,pv]);
+ const pcfg=useMemo(()=>()=>({data:{labels:par.map(r=>r.k),datasets:[
+  {type:"bar",data:par.map(r=>r.v),backgroundColor:par.map(r=>r.few?css("--ac"):css("--ac2")),borderRadius:3,yAxisID:"y"},
+  {type:"line",data:par.map(r=>r.cum),borderColor:css("--sg"),borderWidth:2,pointRadius:3,yAxisID:"y2"}]},options:base(v=>v,true)}),[par]);
+ const preds=D.pred.filter(p=>line==="All"||p.line===line);
+ const[f,setF]=useState({line:"Line A",units:"",defects:""}),[msg,setMsg]=useState(null);
+ const submit=()=>{const u=+f.units,d=+f.defects;
+  if(!(u>0))return setMsg({e:1,t:"Units inspected must be greater than 0."});
+  if(!(d>=0)||f.defects==="")return setMsg({e:1,t:"Defect count must be 0 or more."});
+  if(d>u)return setMsg({e:1,t:"Defect count can’t be higher than units inspected."});
+  setAdded([...added,{line:f.line,units:u,defects:d}]);setF({...f,units:"",defects:""});setMsg({t:"Record saved for "+f.line+". The control chart has updated."})};
+ const title=(line==="All"?"All lines":line);
+ return h("div",{className:"w"},
+  h("div",{className:"top"},h("div",null,h("h1",null,"Defect rate trend and root cause"),h("div",{className:"mu sm"},"Sample data, 26 weeks, 3 production lines")),
+   h("label",{className:"sm mu"},"Signed in as ",h("select",{value:role,onChange:e=>setRole(e.target.value)},Object.keys(PERM).map(r=>h("option",{key:r},r))))),
+  !can("dashboard:view")?h("div",{className:"p lock",style:{marginTop:18}},h("h2",null,"Dashboards aren’t available for this role"),
+   h("p",{className:"mu"},"IT Administrators manage users and system settings. Switch to QC Engineer, Line Supervisor or Quality Manager to see defect analytics.")):
+  h(React.Fragment,null,
+  h("div",{className:"bar"},h("div",{className:"seg",role:"group","aria-label":"Production line"},["All","Line A","Line B","Line C"].map(l=>h("button",{key:l,"aria-pressed":line===l,onClick:()=>setLine(l)},l))),
+   h("div",{className:"seg",role:"group","aria-label":"Period"},[[0,"All weeks"],[12,"Last 12"],[6,"Last 6"]].map(([v,t])=>h("button",{key:v,"aria-pressed":win===v,onClick:()=>setWin(v)},t)))),
+  h("section",{className:"hero"},
+   h("div",{className:"n"},title+" went outside its control limits in ",h("b",null,s.ooc+" of "+s.n)," weeks"),
+   h("p",{className:"mu",style:{margin:"8px 0 0"}},Math.abs(s.ch)<.002?"The defect rate is holding steady.":"The defect rate has "+(s.ch>0?"risen":"fallen")+" by "+(Math.abs(s.ch)*100).toFixed(1)+" percentage points over this period."),
+   h(Cv,{cfg:pchart,height:280}),
+   h("div",{className:"mu sm"},"Weekly defect rate with 3-sigma limits (dashed). Orange points are above the upper limit."),
+   h("div",{className:"stats"},[["Overall defect rate",pct(s.pb,2)],["Latest week",pct(s.last,2)],["Defects found",s.F.toLocaleString()],["Units inspected",s.U.toLocaleString()]].map(([a,b])=>h("div",{key:a},h("div",{className:"n"},b),h("div",{className:"mu sm"},a))))),
+  h("div",{className:"g"},
+   h("section",{className:"p"},h("header",null,h("h2",null,"Pareto analysis"),
+     h("div",{className:"seg"},[["defect","Defect type"],["machine","Machine"]].map(([v,t])=>h("button",{key:v,"aria-pressed":pv===v,onClick:()=>setPv(v)},t)))),
+    h(Cv,{cfg:pcfg,height:230}),h("div",{className:"mu sm"},"Dark bars are the vital few that make up the first 80% of defects.")),
+   h("section",{className:"p"},h("h2",null,"What moves the defect rate"),
+    h("div",{className:"mu sm",style:{marginBottom:6}},"Pearson correlation with defect rate, all lines"),
+    D.corr.map(([k,r,sg])=>h("div",{className:"br",key:k},h("span",null,label(k)),h("i",{className:r<0?"":"s",style:{width:Math.max(3,Math.abs(r)*300)+"%",maxWidth:"100%",opacity:sg?1:.35}}),h("span",null,(r>0?"+":"")+r.toFixed(2)))),
+    h("div",{className:"mu sm"},"Faded bars are not statistically significant. Correlation shows association, not cause."))),
+  can("rootcause:predict")&&h("section",{className:"p",style:{marginTop:16}},
+   h("header",null,h("h2",null,"Suggested root causes")),
+   h("div",{className:"mu sm",style:{marginBottom:8}},"A decision tree suggests likely causes from past records. Treat them as leads to check, not confirmed causes."),
+   h("div",{className:"tw"},h("table",null,h("thead",null,h("tr",null,["Record","Defect","Top suggestion","Next most likely"].map(t=>h("th",{key:t},t)))),
+    h("tbody",null,preds.length?preds.map((p,i)=>h("tr",{key:i},h("td",null,p.date+", "+p.line+", "+p.machine+", "+p.shift),h("td",null,p.defect),
+     h("td",null,h("span",{className:"cf",style:{width:p.s[0][1]*70}}),p.s[0][0]+" "+pct(p.s[0][1],0)),
+     h("td",{className:"mu"},p.s[1][0]+" "+pct(p.s[1][1],0)+", "+p.s[2][0]+" "+pct(p.s[2][1],0)))):h("tr",null,h("td",{colSpan:4,className:"mu"},"No recent defect records for this line."))))),
+   can("rootcause:train")&&h("div",{style:{marginTop:16}},h("h2",{style:{fontSize:15}},"Model quality"),
+    h("div",{className:"mu sm",style:{marginBottom:4}},"Hold-out accuracy "+pct(D.acc)+" on sample data. Most influential features:"),
+    D.imp.map(([k,v])=>h("div",{className:"br",key:k},h("span",null,label(k)),h("i",{style:{width:v*250+"%",maxWidth:"100%"}}),h("span",null,v.toFixed(2)))))),
+  can("record:create")&&h("section",{className:"p",style:{marginTop:16}},h("h2",{style:{marginBottom:10}},"Log an inspection"),
+   h("div",{className:"f"},h("label",null,"Production line",h("select",{value:f.line,onChange:e=>setF({...f,line:e.target.value})},["Line A","Line B","Line C"].map(l=>h("option",{key:l},l)))),
+    h("label",null,"Units inspected",h("input",{type:"number",min:1,value:f.units,onChange:e=>setF({...f,units:e.target.value})})),
+    h("label",null,"Defects found",h("input",{type:"number",min:0,value:f.defects,onChange:e=>setF({...f,defects:e.target.value})})),
+    h("button",{className:"btn",onClick:submit},"Save record")),
+   msg&&h("div",{className:"msg "+(msg.e?"e":"k"),role:"status"},msg.t))))}
+ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+</script></body></html>

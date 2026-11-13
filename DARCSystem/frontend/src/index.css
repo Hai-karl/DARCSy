@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Semi Condensed", "Barlow", ui-sans-serif, sans-serif;
+  --color-brand-50: #e8f4f5;
+  --color-brand-100: #cfe7ea;
+  --color-brand-400: #3aa6b2;
+  --color-brand-500: #0f8a97;
+  --color-brand-600: #0f6e78;
+  --color-brand-700: #0c5861;
+  --color-signal: #d9610f;
+  --color-ok: #2b8a5a;
+}
+
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { @apply bg-slate-100 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100; }
+h1, h2, h3, .font-display { font-family: var(--font-display); }
+:focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; }

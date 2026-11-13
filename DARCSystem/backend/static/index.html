@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Defect Trend Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#edf1f3;--sf:#fff;--ink:#14272e;--mu:#5b6f77;--ln:#cfd9de;--ac:#0f6e78;--sg:#d9610f;--ok:#2b8a5a;--ac2:#9fc9ce;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a1e;--sf:#16252b;--ink:#e6eef0;--mu:#93a8b0;--ln:#2a3d45;--ac:#4fc3cf;--sg:#ff9a4d;--ok:#5fd09a;--ac2:#2c5b61}}
+:root[data-theme="dark"]{--bg:#0f1a1e;--sf:#16252b;--ink:#e6eef0;--mu:#93a8b0;--ln:#2a3d45;--ac:#4fc3cf;--sg:#ff9a4d;--ok:#5fd09a;--ac2:#2c5b61}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 Barlow,system-ui,sans-serif}
+.w{max-width:1120px;margin:0 auto;padding:20px 18px 48px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1,h2,.n{font-family:"Barlow Semi Condensed",Barlow,sans-serif;margin:0}
+h1{font-size:20px;font-weight:600}h2{font-size:17px;font-weight:600}
+.mu{color:var(--mu)}.sm{font-size:13px}
+select,button,input{font:inherit;color:var(--ink)}
+select,input{background:var(--sf);border:1px solid var(--ln);border-radius:6px;padding:6px 10px}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 14px;align-items:center}
+.seg{display:flex;border:1px solid var(--ln);border-radius:6px;overflow:hidden;background:var(--sf)}
+.seg button{border:0;background:none;padding:6px 14px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--ac);color:var(--sf);font-weight:600}
+.hero{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:22px 22px 14px}
+.hero .n{font-size:clamp(26px,4.6vw,40px);font-weight:700;line-height:1.1;max-width:20ch}
+.hero .n b{color:var(--sg);font-weight:700}
+.cv{position:relative;width:100%;margin-top:14px}
+.stats{display:flex;flex-wrap:wrap;margin:16px 0 0;border-top:1px solid var(--ln)}
+.stats div{flex:1 1 150px;padding:12px 0 2px}.stats .n{font-size:24px;font-weight:600}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+@media (max-width:760px){.g{grid-template-columns:1fr}.hero{padding:16px}}
+.p{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:18px}
+.p header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.br{display:grid;grid-template-columns:130px 1fr 52px;gap:10px;align-items:center;margin:9px 0;font-size:14px}
+.br i{display:block;height:8px;border-radius:4px;background:var(--ac)}
+.br i.s{background:var(--sg)}.br span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px;min-width:620px}
+th{font-weight:500;color:var(--mu);text-align:left;padding:6px 8px;border-bottom:1px solid var(--ln)}
+td{padding:9px 8px;border-bottom:1px solid var(--ln);vertical-align:top}
+.cf{display:inline-block;height:6px;border-radius:3px;background:var(--ac);vertical-align:middle;margin-right:6px}
+.btn{background:var(--ac);color:var(--sf);border:0;border-radius:6px;padding:8px 16px;font-weight:600;cursor:pointer}
+.f{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.f label{display:grid;gap:3px;font-size:13px;color:var(--mu)}
+.f input{width:110px}.msg{margin-top:10px;font-size:14px}.msg.e{color:var(--sg)}.msg.k{color:var(--ok)}
+.lock{padding:40px 24px;text-align:center}
+</style></head><body><div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+let D=null,TOKEN=null;
+const EMPTY={weekly:{All:[]},pareto:{All:{}},machine:{All:{}},severity:{All:{}},corr:[],imp:[],pred:[],lines:[],acc:null};
+async function api(path,{method="GET",body}={}){
+ const r=await fetch(path,{method,headers:{...(body?{"Content-Type":"application/json"}:{}),...(TOKEN?{Authorization:"Bearer "+TOKEN}:{})},body:body?JSON.stringify(body):undefined});
+ const j=await r.json().catch(()=>({}));
+ if(!r.ok)throw new Error(j.problems?j.problems.join(" "):(j.error||"Something went wrong. Try again."));return j}
+const {useState,useEffect,useRef,useMemo}=React,h=React.createElement;
+const PERM={"QC Engineer":["record:create","dashboard:view","rootcause:predict"],"Line Supervisor":["dashboard:view","rootcause:predict"],"Quality Manager":["dashboard:view","rootcause:predict","rootcause:train"],"IT Administrator":["user:manage"]};
+const pct=(v,d=1)=>(v*100).toFixed(d)+"%";
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function useTheme(){const[t,s]=useState(0);useEffect(()=>{const m=matchMedia("(prefers-color-scheme: dark)"),f=()=>s(x=>x+1);m.addEventListener("change",f);return()=>m.removeEventListener("change",f)},[]);return t}
+function Cv({cfg,height}){const r=useRef(),t=useTheme();
+ useEffect(()=>{const c=new Chart(r.current,cfg());return()=>c.destroy()},[cfg,t]);
+ return h("div",{className:"cv",style:{height}},h("canvas",{ref:r}))}
+const base=(yfmt,y2)=>{const mu=css("--mu"),ln=css("--ln");return{maintainAspectRatio:false,animation:false,interaction:{mode:"index",intersect:false},
+ plugins:{legend:{display:false}},scales:{x:{ticks:{color:mu,maxTicksLimit:8},grid:{display:false}},
+ y:{ticks:{color:mu,callback:yfmt},grid:{color:ln},beginAtZero:true},...(y2?{y2:{position:"right",min:0,max:100,ticks:{color:mu,callback:v=>v+"%"},grid:{display:false}}}:{})}}};
+const label=f=>f.replace("defect_type_","Defect: ").replace("machine_id_","Machine ").replace("shift_","Shift ").replace(/_/g," ").replace(/^./,c=>c.toUpperCase());
+
+function App({role,user,reload,logout}){
+ const[line,setLine]=useState(user.assigned_line||"All"),[gran,setGran]=useState("W"),[pf,setPf]=useState({shift:"",start:"",end:""}),[pdata,setPdata]=useState(null),[showSus,setShowSus]=useState(false),[win,setWin]=useState(0),[pv,setPv]=useState("defect"),[added,setAdded]=useState([]);
+ const can=p=>user.permissions.includes(p),[training,setTraining]=useState(false);
+ useEffect(()=>{if(!pf.shift&&!pf.start&&!pf.end){setPdata(null);return}
+  const q=new URLSearchParams({by:{defect:"defect_type",machine:"machine_id",severity:"severity"}[pv],...(line!=="All"?{line}:{}),...(pf.shift?{shift:pf.shift}:{}),...(pf.start?{start:pf.start}:{}),...(pf.end?{end:pf.end}:{})});
+  api("/api/dashboard/pareto?"+q).then(setPdata).catch(()=>setPdata({}))},[pf,pv,line,D]);
+ const onTrain=async()=>{setTraining(true);try{await api("/api/model/train",{method:"POST"});await reload()}catch(e){alert(e.message)}setTraining(false)};
+ const weeks=useMemo(()=>{const w=(D.trend?.[gran]?.[line]||D.weekly[line]).map(r=>r.slice()),l=w[w.length-1];
+  added.forEach(a=>{if(line==="All"||a.line===line){l[1]+=a.units;l[2]+=a.defects}});return win?w.slice(-win):w},[line,win,added,D,gran]);
+ const s=useMemo(()=>{const U=weeks.reduce((a,r)=>a+r[1],0),F=weeks.reduce((a,r)=>a+r[2],0),pb=F/U;
+  const rows=weeks.map(r=>{const p=r[2]/r[1],se=Math.sqrt(pb*(1-pb)/r[1]);return{l:r[0],p,u:pb+3*se,lo:Math.max(0,pb-3*se)}});const W=gran==="D"?7:gran==="W"?4:3;rows.forEach((r,i)=>{const a=rows.slice(Math.max(0,i-W+1),i+1);r.ma=a.reduce((x,y)=>x+y.p,0)/a.length});
+  const n=rows.length,mx=(n-1)/2,my=rows.reduce((a,r)=>a+r.p,0)/n;let sxy=0,sxx=0;rows.forEach((r,i)=>{sxy+=(i-mx)*(r.p-my);sxx+=(i-mx)**2});
+  const ch=n>1?sxy/sxx*(n-1):0;
+  return{U,F,pb,rows,n,ooc:rows.filter(r=>r.p>r.u||r.p<r.lo).length,ch,last:rows[n-1]?.p}},[weeks,gran]);
+ const pchart=useMemo(()=>()=>({type:"line",data:{labels:s.rows.map(r=>r.l),datasets:[
+  {data:s.rows.map(r=>r.p),borderColor:css("--ac"),borderWidth:2,tension:.2,pointRadius:s.rows.map(r=>r.p>r.u?5:2.5),
+   pointBackgroundColor:s.rows.map(r=>r.p>r.u?css("--sg"):css("--ac")),pointBorderColor:s.rows.map(r=>r.p>r.u?css("--sg"):css("--ac"))},
+  {data:s.rows.map(r=>r.u),borderColor:css("--sg"),borderDash:[6,4],borderWidth:1.2,pointRadius:0},
+  {data:s.rows.map(()=>s.pb),borderColor:css("--mu"),borderWidth:1,pointRadius:0},
+  {data:s.rows.map(r=>r.ma),borderColor:css("--ok"),borderWidth:2,borderDash:[2,3],pointRadius:0},
+  {data:s.rows.map(r=>r.lo),borderColor:css("--sg"),borderDash:[6,4],borderWidth:1.2,pointRadius:0}]},
+  options:base(v=>pct(v))}),[s]);
+ const par=useMemo(()=>{const src=pdata||(pv==="defect"?D.pareto[line]:pv==="severity"?D.severity[line]:D.machine[line]),e=Object.entries(src),T=e.reduce((a,x)=>a+x[1],0);let c=0;
+  return e.map(([k,v])=>{const before=c;c+=v;return{k,v,pc:v/T,cum:c/T*100,few:before/T<.8}})},[line,pv,D,pdata]);
+ const pcfg=useMemo(()=>()=>({data:{labels:par.map(r=>r.k),datasets:[
+  {type:"bar",data:par.map(r=>r.v),backgroundColor:par.map(r=>r.few?css("--ac"):css("--ac2")),borderRadius:3,yAxisID:"y"},
+  {type:"line",data:par.map(r=>r.cum),borderColor:css("--sg"),borderWidth:2,pointRadius:3,yAxisID:"y2"}]},options:base(v=>v,true)}),[par]);
+ const preds=D.pred.filter(p=>line==="All"||p.line===line);
+ const[f,setF]=useState({date:new Date().toISOString().slice(0,10),line:"",product:"",shift:"Morning",machine:"",batch:"",severity:"Minor",dtype:"",units:"",defects:""}),[msg,setMsg]=useState(null);
+ const fld=(l,k,ty,dl)=>h("label",null,l,h("input",{type:ty,list:dl,value:f[k],onChange:e=>setF({...f,[k]:e.target.value}),style:ty==="text"?{width:120}:undefined}));
+ const submit=async()=>{const u=+f.units,d=+f.defects;
+  if(!f.line||!f.product||!f.machine||!f.batch)return setMsg({e:1,t:"Enter the production line, product, machine and batch number."});
+  if(!(u>0))return setMsg({e:1,t:"Units inspected must be greater than 0."});
+  if(!(d>=0)||f.defects==="")return setMsg({e:1,t:"Defect count must be 0 or more."});
+  if(d>u)return setMsg({e:1,t:"Defect count can’t be higher than units inspected."});
+  if(d>0&&!f.dtype)return setMsg({e:1,t:"Enter the defect type."});
+  try{await api("/api/records",{method:"POST",body:{inspection_date:f.date,production_line:f.line,product_type:f.product,shift:f.shift,machine_id:f.machine,defect_type:d>0?f.dtype:"None",batch_number:f.batch,severity:d>0?f.severity:"None",units_inspected:u,defect_count:d}});
+   setF({...f,units:"",defects:""});setMsg({t:"Record saved. The charts have updated."});await reload()}catch(e){setMsg({e:1,t:e.message})}};
+ const title=(line==="All"?"All lines":line);
+ return h("div",{className:"w"},
+  h("div",{className:"top"},h("div",null,h("h1",null,"Defect rate trend and root cause"),h("div",{className:"mu sm"},D.weekly.All.length+" weeks of records, "+D.lines.length+" production lines")),
+   h("div",{className:"sm mu"},user.full_name+", "+role+" ",h("button",{className:"btn",style:{padding:"4px 10px",marginLeft:6},onClick:()=>setShowSus(!showSus)},"Rate this system"),h("button",{className:"btn",style:{padding:"4px 10px",marginLeft:6},onClick:logout},"Sign out"))),
+  showSus&&h(Sus,{can,onClose:()=>setShowSus(false)}),
+  can("alert:view")&&h(AlertsPanel,{can,reload}),can("user:manage")&&h(UsersPanel,{reload}),
+  can("record:create")&&h("section",{className:"p",style:{marginTop:18}},h("h2",{style:{marginBottom:2}},"Log a defect"),h("div",{className:"mu sm",style:{marginBottom:10}},"Record what you found on the line. Enter 0 defects for a clean batch."),
+   h("div",{className:"f"},fld("Date","date","date"),fld("Production line","line","text","dl-lines"),fld("Product","product","text"),
+    h("label",null,"Shift",h("select",{value:f.shift,onChange:e=>setF({...f,shift:e.target.value})},["Morning","Evening","Night"].map(x=>h("option",{key:x},x)))),
+    fld("Machine","machine","text"),fld("Batch number","batch","text"),fld("Defect type","dtype","text","dl-types"),
+    h("label",null,"Severity",h("select",{value:f.severity,onChange:e=>setF({...f,severity:e.target.value})},["Minor","Major","Critical","Safety-Critical"].map(x=>h("option",{key:x},x)))),
+    fld("Units inspected","units","number"),fld("Defects found (quantity)","defects","number"),
+    h("button",{className:"btn",onClick:submit},"Save record")),
+   h("datalist",{id:"dl-lines"},D.lines.map(l=>h("option",{key:l,value:l}))),h("datalist",{id:"dl-types"},Object.keys(D.pareto.All||{}).map(l=>h("option",{key:l,value:l}))),
+   msg&&h("div",{className:"msg "+(msg.e?"e":"k"),role:"status"},msg.t)),
+  (!can("dashboard:view")||!s.n)?h("div",{className:"p lock",style:{marginTop:18}},h("h2",null,(can("dashboard:view")?"No inspection records yet":"Dashboards aren’t available for this role")),
+   h("p",{className:"mu"},(can("dashboard:view")?"Log a defect or import a CSV to start the dashboard.":"Your role manages users and system settings. Defect analytics are available to QC Engineers, Line Supervisors and Quality Managers."))):
+  h(React.Fragment,null,
+  h("div",{className:"bar"},h("div",{className:"seg",role:"group","aria-label":"Production line"},(user.assigned_line?D.lines:["All",...D.lines]).map(l=>h("button",{key:l,"aria-pressed":line===l,onClick:()=>setLine(l)},l))),
+   h("div",{className:"seg",role:"group","aria-label":"Granularity"},[["D","Daily"],["W","Weekly"],["M","Monthly"]].map(([v,t])=>h("button",{key:v,"aria-pressed":gran===v,onClick:()=>setGran(v)},t))),
+   h("div",{className:"seg",role:"group","aria-label":"Period"},[[0,"All"],[30,"Last 30"],[12,"Last 12"],[6,"Last 6"]].map(([v,t])=>h("button",{key:v,"aria-pressed":win===v,onClick:()=>setWin(v)},t)))),
+  h("section",{className:"hero"},
+   h("div",{className:"n"},title+" went outside its control limits in ",h("b",null,s.ooc+" of "+s.n)," "+({D:"days",W:"weeks",M:"months"})[gran]),
+   h("p",{className:"mu",style:{margin:"8px 0 0"}},Math.abs(s.ch)<.002?"The defect rate is holding steady.":"The defect rate has "+(s.ch>0?"risen":"fallen")+" by "+(Math.abs(s.ch)*100).toFixed(1)+" percentage points over this period."),
+   h(Cv,{cfg:pchart,height:280}),
+   h("div",{className:"mu sm"},"Weekly defect rate with 3-sigma limits (dashed). Orange points are above the upper limit. The green dotted line is the moving average (7 days, 4 weeks or 3 months)."),
+   h("div",{className:"stats"},[["Overall defect rate",pct(s.pb,2)],["Latest week",pct(s.last,2)],["Defects found",s.F.toLocaleString()],["Units inspected",s.U.toLocaleString()]].map(([a,b])=>h("div",{key:a},h("div",{className:"n"},b),h("div",{className:"mu sm"},a))))),
+  h("div",{className:"g"},
+   h("section",{className:"p"},h("header",null,h("h2",null,"Pareto analysis"),
+     h("div",{className:"seg"},[["defect","Defect type"],["machine","Machine"],["severity","Severity"]].map(([v,t])=>h("button",{key:v,"aria-pressed":pv===v,onClick:()=>setPv(v)},t)))),
+    h("div",{className:"f",style:{margin:"6px 0 4px"}},L("Shift",sel(pf,setPf,"shift",["","Morning","Evening","Night"])),L("From",inp(pf,setPf,"start","date",140)),L("To",inp(pf,setPf,"end","date",140))),
+    h(Cv,{cfg:pcfg,height:230}),h("div",{className:"mu sm"},"Dark bars are the vital few that make up the first 80% of defects.")),
+   h("section",{className:"p"},h("h2",null,"What moves the defect rate"),
+    h("div",{className:"mu sm",style:{marginBottom:6}},"Pearson correlation with defect rate, all lines"),
+    D.corr.map(([k,r,sg])=>h("div",{className:"br",key:k},h("span",null,label(k)),h("i",{className:r<0?"":"s",style:{width:Math.max(3,Math.abs(r)*300)+"%",maxWidth:"100%",opacity:sg?1:.35}}),h("span",null,(r>0?"+":"")+r.toFixed(2)))),
+    h("div",{className:"mu sm"},"Faded bars are not statistically significant. Correlation shows association, not cause."))),
+  h(Heat),can("action:view")&&h(Actions,{can,reload}),h(Settings,{can,reload}),can("rootcause:predict")&&h(Investigate),can("rootcause:predict")&&h(Predictor,{can}),
+  can("rootcause:predict")&&h("section",{className:"p",style:{marginTop:16}},
+   h("header",null,h("h2",null,"Suggested root causes")),
+   h("div",{className:"mu sm",style:{marginBottom:8}},"A decision tree suggests likely causes from past records. Treat them as leads to check, not confirmed causes."),
+   h("div",{className:"tw"},h("table",null,h("thead",null,h("tr",null,["Record","Defect","Top suggestion","Next most likely"].map(t=>h("th",{key:t},t)))),
+    h("tbody",null,preds.length?preds.map((p,i)=>h("tr",{key:i},h("td",null,p.date+", "+p.line+", "+p.machine+", "+p.shift),h("td",null,p.defect),
+     h("td",null,h("span",{className:"cf",style:{width:p.s[0][1]*70}}),p.s[0][0]+" "+pct(p.s[0][1],0)),
+     h("td",{className:"mu"},p.s[1][0]+" "+pct(p.s[1][1],0)+", "+p.s[2][0]+" "+pct(p.s[2][1],0)))):h("tr",null,h("td",{colSpan:4,className:"mu"},(D.acc==null?"The model hasn’t been trained yet. A Quality Manager can train it from this panel.":"No recent defect records for this line.")))))),
+   can("rootcause:train")&&h("div",{style:{marginTop:16}},h("h2",{style:{fontSize:15}},"Model quality"),h("button",{className:"btn",style:{margin:"6px 0"},onClick:onTrain,disabled:training},training?"Training…":"Train on current records"),
+    h("div",{className:"mu sm",style:{marginBottom:4}},D.acc==null?"The model hasn’t been trained yet.":"Decision tree: accuracy "+pct(D.acc)+(D.metrics?", precision "+pct(D.metrics.precision)+", recall "+pct(D.metrics.recall)+", F1 "+pct(D.metrics.f1_weighted)+". Random forest benchmark: accuracy "+pct(D.metrics.benchmark.accuracy)+", F1 "+pct(D.metrics.benchmark.f1_weighted)+".":"")+(D.agree&&D.agree.rate!=null?" Engineers confirmed "+pct(D.agree.rate,0)+" of the model’s suggestions ("+D.agree.n+" rated).":"")+" Most influential features:"),
+    D.imp.map(([k,v])=>h("div",{className:"br",key:k},h("span",null,label(k)),h("i",{style:{width:v*250+"%",maxWidth:"100%"}}),h("span",null,v.toFixed(2)))))),
+  ))}
+
+const when=t=>new Date(t).toLocaleString(),ROOTS=["Man","Machine","Material","Method","Environment"];
+const L=(t,c)=>h("label",null,t,c);
+const inp=(f,setF,k,ty="text",w=110)=>h("input",{type:ty,value:f[k],style:{width:w},onChange:e=>setF({...f,[k]:e.target.value})});
+const sel=(f,setF,k,opts)=>h("select",{value:f[k],onChange:e=>setF({...f,[k]:e.target.value})},opts.map(o=>h("option",{key:o},o)));
+function dl(path,name){fetch(path,{headers:{Authorization:"Bearer "+TOKEN}}).then(r=>r.ok?r.blob():Promise.reject()).then(b=>{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;a.click()}).catch(()=>alert("Could not create the report."))}
+function useRun(reload){const[msg,setMsg]=useState(null);return[msg,async(f,ok)=>{try{await f();setMsg({t:ok});await reload()}catch(e){setMsg({e:1,t:e.message})}}]}
+const Msg=({m})=>m?h("div",{className:"msg "+(m.e?"e":"k"),role:"status"},m.t):null;
+function AlertsPanel({can,reload}){const al=D.alerts||[];if(!al.length)return null;
+ return h("section",{className:"p",style:{marginTop:18,borderColor:"var(--sg)"}},h("h2",null,"Open alerts ("+al.length+")"),
+  al.map(a=>h("div",{key:a.id,style:{display:"flex",gap:10,justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderTop:"1px solid var(--ln)"}},
+   h("span",null,h("b",null,a.kind==="safety"?"Safety-critical: ":"Threshold: "),a.message,h("span",{className:"mu sm"}," "+when(a.created_at)+", email "+a.email_status.replace("_"," "))),
+   can("alert:ack")&&h("button",{className:"btn",onClick:async()=>{await api("/api/alerts/"+a.id+"/ack",{method:"POST"});reload()}},"Acknowledge"))))}
+function Heat(){const H=D.heat;if(!H||!H.labels)return null;
+ const col=v=>(v>=0?"rgba(15,110,120,":"rgba(217,97,15,")+Math.min(1,Math.abs(v)*1.3)+")";
+ return h("section",{className:"p",style:{marginTop:16}},h("h2",null,"Correlation heatmap"),h("div",{className:"mu sm"},"Teal is a positive link, orange a negative one. Hover a cell for its value."),
+  h("div",{className:"tw"},h("table",{style:{minWidth:0,fontSize:12,marginTop:8}},h("thead",null,h("tr",null,h("th"),H.labels.map(l=>h("th",{key:l,style:{padding:"2px 4px",writingMode:"vertical-rl"}},l)))),
+   h("tbody",null,H.labels.map((l,i)=>h("tr",{key:l},h("th",{style:{whiteSpace:"nowrap"}},l),H.matrix[i].map((v,j)=>h("td",{key:j,title:l+" vs "+H.labels[j]+": "+v,style:{background:col(v),textAlign:"center",padding:"3px 5px",color:Math.abs(v)>.5?"#fff":"inherit"}},v.toFixed(1)))))))))}
+function Actions({can,reload}){const A=D.actions||[],[f,setF]=useState({production_line:"",machine_id:"",defect_type:"",root_cause:"Machine",suggested_cause:"",description:""}),[msg,run]=useRun(reload),[eff,setEff]=useState({});
+ const post=(id,path,ok)=>run(()=>api("/api/corrective-actions/"+id+"/"+path,{method:"POST",body:{}}),ok);
+ return h("section",{className:"p",style:{marginTop:16}},h("h2",null,"Corrective actions"),
+  A.length?h("div",{className:"tw"},h("table",null,h("thead",null,h("tr",null,["Where","Confirmed cause","Action","Status",""].map(t=>h("th",{key:t},t)))),
+   h("tbody",null,A.map(a=>h("tr",{key:a.id},h("td",null,a.production_line+(a.machine_id?", "+a.machine_id:"")+(a.defect_type?", "+a.defect_type:"")),h("td",null,a.root_cause),h("td",null,a.description),
+    h("td",null,a.status+(a.implemented_at?" ("+a.implemented_at+")":"")),
+    h("td",null,a.status==="Proposed"&&can("action:approve")&&h("button",{className:"btn",onClick:()=>post(a.id,"approve","Action approved.")},"Approve"),
+     a.status==="Approved"&&can("action:log")&&h("button",{className:"btn",onClick:()=>post(a.id,"implement","Marked as implemented.")},"Mark implemented"),
+     a.status==="Implemented"&&h("span",null,h("button",{className:"btn",onClick:async()=>{try{setEff({...eff,[a.id]:(await api("/api/corrective-actions/"+a.id+"/effectiveness")).message})}catch(e){setEff({...eff,[a.id]:e.message})}}},"Check effect"),eff[a.id]&&h("div",{className:"mu sm"},eff[a.id])))))))):h("p",{className:"mu sm"},"No corrective actions logged yet."),
+  can("action:log")&&h("div",{style:{marginTop:12}},h("h2",{style:{fontSize:15}},"Log a corrective action"),
+   h("div",{className:"f"},L("Line",inp(f,setF,"production_line")),L("Machine (optional)",inp(f,setF,"machine_id",100)),L("Defect type (optional)",inp(f,setF,"defect_type")),
+    L("Confirmed root cause",sel(f,setF,"root_cause",ROOTS)),L("Model suggested (optional)",sel(f,setF,"suggested_cause",["",...ROOTS])),L("What will be done",inp(f,setF,"description","text",240)),
+    h("button",{className:"btn",onClick:()=>run(()=>api("/api/corrective-actions",{method:"POST",body:f}),"Action logged. It now waits for approval.")},"Save action"))),
+  h(Msg,{m:msg}))}
+function Settings({can,reload}){const[t,setT]=useState({production_line:"",pct:""}),[msg,run]=useRun(reload),up=useRef();
+ const upload=async()=>{const fd=new FormData();if(!up.current.files[0])throw new Error("Choose a CSV or Excel file first.");fd.append("file",up.current.files[0]);
+  const r=await fetch("/api/records/import",{method:"POST",headers:{Authorization:"Bearer "+TOKEN},body:fd}),j=await r.json();if(!r.ok)throw new Error(j.problems?j.problems.join(" "):j.error);return j};
+ return h("section",{className:"p",style:{marginTop:16}},h("h2",null,"Alerts, import and reports"),
+  can("threshold:configure")&&h("div",{style:{margin:"8px 0"}},h("div",{className:"mu sm"},"An alert is raised when a line’s defect rate over 7 days goes above its threshold. Now: "+((D.thresholds||[]).map(x=>x.production_line+" "+(x.max_defect_rate*100).toFixed(1)+"%").join(", ")||"none set")),
+   h("div",{className:"f"},L("Line",inp(t,setT,"production_line")),L("Threshold (%)",inp(t,setT,"pct","number",90)),
+    h("button",{className:"btn",onClick:()=>run(()=>api("/api/thresholds",{method:"PUT",body:{production_line:t.production_line,max_defect_rate:+t.pct/100}}),"Threshold saved.")},"Save threshold"))),
+  can("record:create")&&h("div",{style:{margin:"12px 0"}},h("div",{className:"mu sm"},"Bulk upload: CSV or Excel with the same columns as the form (use None for defect type and severity when there are 0 defects)."),
+   h("div",{className:"f"},h("input",{type:"file",accept:".csv,.xlsx,.xls",ref:up}),h("button",{className:"btn",onClick:()=>run(async()=>{await upload()},"File imported. Charts updated.")},"Upload"))),
+  can("report:export")&&h("div",{className:"f",style:{marginTop:12}},h("button",{className:"btn",onClick:()=>dl("/api/reports/quality?format=xlsx","quality_report.xlsx")},"Download Excel report"),h("button",{className:"btn",onClick:()=>dl("/api/reports/quality?format=pdf","quality_report.pdf")},"Download PDF report")),
+  h(Msg,{m:msg}))}
+function Investigate(){const[f,setF]=useState({defect_type:"",line:""}),[r,setR]=useState(null);
+ const go=async()=>{try{setR(await api("/api/rootcause/investigate",{method:"POST",body:{defect_type:f.defect_type||undefined,line:f.line||undefined}}))}catch(e){setR({error:e.message})}};
+ return h("section",{className:"p",style:{marginTop:16}},h("h2",null,"Investigate a defect pattern"),
+  h("div",{className:"f",style:{margin:"8px 0"}},L("Defect type",sel(f,setF,"defect_type",["",...Object.keys(D.pareto.All)])),L("Line",sel(f,setF,"line",["",...D.lines])),h("button",{className:"btn",onClick:go},"Find likely causes")),
+  r&&(r.error?h("div",{className:"msg e"},r.error):h("div",null,h("div",{className:r.low_confidence?"msg e":"mu sm"},r.message),r.ranked.map(x=>h("div",{className:"br",key:x.cause},h("span",null,x.cause),h("i",{style:{width:Math.max(2,x.confidence*100)+"%"}}),h("span",null,pct(x.confidence,0)))),
+   r.top_machines&&h("div",{className:"mu sm"},"Most defects on: "+Object.entries(r.top_machines).map(([k,v])=>k+" ("+v+")").join(", ")))))}
+function UsersPanel({reload}){const U=D.users||[],[f,setF]=useState({username:"",full_name:"",email:"",role:"QC Engineer",password:"",assigned_line:""}),[msg,run]=useRun(reload);
+ const patch=(id,b,ok)=>run(()=>api("/api/users/"+id,{method:"PATCH",body:b}),ok);
+ return h("section",{className:"p",style:{marginTop:18}},h("h2",null,"User accounts"),
+  h("div",{className:"tw"},h("table",null,h("thead",null,h("tr",null,["User","Email","Role","Status"].map(t=>h("th",{key:t},t)))),
+   h("tbody",null,U.map(u=>h("tr",{key:u.id},h("td",null,u.full_name+" ("+u.username+")"+(u.assigned_line?" – "+u.assigned_line:"")),h("td",null,u.email||"-"),
+    h("td",null,h("select",{value:u.role,onChange:e=>patch(u.id,{role:e.target.value},"Role updated.")},["QC Engineer","Line Supervisor","Quality Manager","IT Administrator"].map(r=>h("option",{key:r},r)))),
+    h("td",null,h("button",{className:"btn",onClick:()=>patch(u.id,{is_active:!u.is_active},u.is_active?"Account disabled.":"Account enabled.")},u.is_active?"Disable":"Enable"))))))),
+  h("h2",{style:{fontSize:15,marginTop:14}},"Add a user"),
+  h("div",{className:"f"},L("Username",inp(f,setF,"username")),L("Full name",inp(f,setF,"full_name")),L("Email",inp(f,setF,"email","text",160)),L("Role",sel(f,setF,"role",["QC Engineer","Line Supervisor","Quality Manager","IT Administrator"])),L("Assigned line (optional)",inp(f,setF,"assigned_line")),L("Password (8+ characters)",inp(f,setF,"password","password")),
+   h("button",{className:"btn",onClick:()=>run(()=>api("/api/users",{method:"POST",body:f}),"User added.")},"Add user")),h(Msg,{m:msg}))}
+
+const SUSQ=["I think that I would like to use this system frequently.","I found the system unnecessarily complex.","I thought the system was easy to use.","I think that I would need the support of a technical person to be able to use this system.","I found the various functions in this system were well integrated.","I thought there was too much inconsistency in this system.","I would imagine that most people would learn to use this system very quickly.","I found the system very cumbersome to use.","I felt very confident using the system.","I needed to learn a lot of things before I could get going with this system."];
+function Sus({can,onClose}){const[a,setA]=useState(Array(10).fill(0)),[res,setRes]=useState(null),[sum,setSum]=useState(null);
+ useEffect(()=>{if(can("sus:view"))api("/api/sus/summary").then(setSum).catch(()=>{})},[res]);
+ const send=async()=>{try{setRes(await api("/api/sus",{method:"POST",body:{answers:a}}))}catch(e){setRes({error:e.message})}};
+ return h("section",{className:"p",style:{marginTop:18}},h("header",null,h("h2",null,"Rate this system (SUS)"),h("button",{className:"btn",onClick:onClose},"Close")),
+  h("div",{className:"mu sm",style:{marginBottom:8}},"1 means strongly disagree and 5 means strongly agree."),
+  SUSQ.map((q,i)=>h("div",{key:i,style:{display:"flex",gap:10,justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid var(--ln)"}},h("span",null,(i+1)+". "+q),
+   h("select",{value:a[i],"aria-label":"Answer "+(i+1),onChange:e=>setA(a.map((v,j)=>j===i?+e.target.value:v))},[0,1,2,3,4,5].map(v=>h("option",{key:v,value:v},v||"-"))))),
+  h("div",{className:"f",style:{marginTop:10}},h("button",{className:"btn",onClick:send},"Submit")),
+  res&&(res.error?h("div",{className:"msg e"},res.error):h("div",{className:"msg k"},"Your SUS score is "+res.score+" out of 100, "+res.verdict+". Thank you.")),
+  sum&&sum.n>0&&h("div",{className:"mu sm",style:{marginTop:8}},"All responses: "+sum.n+", average "+sum.mean+" ("+sum.verdict+"). Range "+sum.min+" to "+sum.max+". By role: "+Object.entries(sum.by_role).map(([k,v])=>k+" "+v).join(", ")+"."))}
+
+const FL={product_id:"Product ID",defect_type:"Defect type",defect_date:"Defect date",defect_location:"Defect location",severity:"Severity",inspection_method:"Inspection method"};
+function Predictor({can}){const[sc,setSc]=useState(null),[t,setT]=useState("severity"),[f,setF]=useState({}),[res,setRes]=useState(null),[msg,setMsg]=useState(null),[busy,setBusy]=useState(false);
+ const load=()=>api("/api/ml/schema").then(setSc).catch(e=>setMsg({e:1,t:e.message}));
+ useEffect(()=>{load()},[]);useEffect(()=>{setRes(null);setMsg(null);setF({})},[t]);
+ if(!sc)return msg?h("section",{className:"p",style:{marginTop:16}},h("h2",null,"Predict from defect data"),h(Msg,{m:msg})):null;
+ const T=sc.targets.find(x=>x.key===t),S=sc.schema,q=T.quality,set=(c,v)=>setF({...f,[c]:v});
+ const field=c=>c==="product_id"?L(FL[c]+" ("+S.product_id.min+" to "+S.product_id.max+")",h("input",{type:"number",min:S.product_id.min,max:S.product_id.max,value:f[c]||"",style:{width:120},onChange:e=>set(c,e.target.value)}))
+  :c==="defect_date"?L(FL[c]+" ("+S.date.min+" to "+S.date.max+")",h("input",{type:"date",min:S.date.min,max:S.date.max,value:f[c]||"",onChange:e=>set(c,e.target.value)}))
+  :L(FL[c],h("select",{value:f[c]||"",onChange:e=>set(c,e.target.value)},[h("option",{key:"",value:""},"Select"),...S.categories[c].map(o=>h("option",{key:o},o))]));
+ const go=async()=>{setBusy(true);setMsg(null);try{setRes(await api("/api/ml/predict",{method:"POST",body:{target:t,inputs:f}}))}catch(e){setRes(null);setMsg({e:1,t:e.message})}setBusy(false)};
+ const train=async()=>{setBusy(true);setMsg(null);try{await api("/api/ml/train",{method:"POST"});await load();setMsg({t:"Models trained."})}catch(e){setMsg({e:1,t:e.message})}setBusy(false)};
+ return h("section",{className:"p",style:{marginTop:16}},h("header",null,h("h2",null,"Predict from defect data"),
+   h("div",{className:"seg",role:"group","aria-label":"What to predict"},sc.targets.map(x=>h("button",{key:x.key,"aria-pressed":t===x.key,onClick:()=>setT(x.key)},x.label)))),
+  h("div",{className:"mu sm",style:{marginBottom:8}},"Models trained on defects_data.csv. Choose what to predict, enter what is known at inspection, and click Predict."+(T.task==="classification"?" Repair cost is not an input because it is only known after the repair.":"")),
+  !T.trained?h("div",{className:"msg e"},"This model is not trained yet."+(can("rootcause:train")?" Click Train models.":" A Quality Manager can train it.")):
+   h(React.Fragment,null,q.warning&&h("div",{className:"msg e",role:"alert"},q.warning),h("div",{className:"mu sm"},q.summary),
+    h("div",{className:"f",style:{margin:"10px 0"}},T.inputs.map(c=>h(React.Fragment,{key:c},field(c))),h("button",{className:"btn",onClick:go,disabled:busy},busy?"Working":"Predict")),
+    res&&(res.task==="classification"?h("div",null,h("h2",{style:{fontSize:15}},"Predicted "+T.label.toLowerCase()+": "+res.prediction+" ("+pct(res.confidence,0)+")"),
+      Object.entries(res.probabilities).map(([k,v])=>h("div",{className:"br",key:k},h("span",null,k),h("i",{style:{width:Math.max(2,v*100)+"%"}}),h("span",null,pct(v,0)))))
+     :h("div",null,h("h2",{style:{fontSize:15}},"Estimated repair cost: "+res.prediction.toFixed(2)),h("div",{className:"mu sm"},"Typical error about "+res.typical_error.toFixed(2)+", so roughly "+res.likely_range[0].toFixed(2)+" to "+res.likely_range[1].toFixed(2)+".")))),
+  can("rootcause:train")&&h("div",{style:{marginTop:12}},h("button",{className:"btn",onClick:train,disabled:busy},busy?"Working":"Train models")),
+  h(Msg,{m:msg}))}
+function Login({onLogin}){
+ const[u,setU]=useState(""),[p,setP]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false);
+ const go=async()=>{setBusy(true);setErr("");try{await onLogin(u,p)}catch(e){setErr(e.message)}setBusy(false)};
+ return h("div",{className:"w"},h("div",{className:"p",style:{maxWidth:380,margin:"10vh auto 0"}},
+  h("h1",{style:{marginBottom:4}},"Defect rate trend and root cause"),h("p",{className:"mu sm",style:{marginTop:0}},"Sign in to view quality control analytics."),
+  h("div",{className:"f",style:{flexDirection:"column",alignItems:"stretch"}},
+   h("label",null,"Username",h("input",{value:u,onChange:e=>setU(e.target.value),style:{width:"100%"},autoComplete:"username"})),
+   h("label",null,"Password",h("input",{type:"password",value:p,onChange:e=>setP(e.target.value),style:{width:"100%"},autoComplete:"current-password",onKeyDown:e=>e.key==="Enter"&&go()})),
+   h("button",{className:"btn",onClick:go,disabled:busy},busy?"Signing in…":"Sign in")),
+  err&&h("div",{className:"msg e",role:"alert"},err),
+  h("p",{className:"mu sm",style:{marginBottom:0}},"Demo accounts: qc.engineer, supervisor, manager, admin. Password: Password123!")))}
+function Root(){
+ const[user,setUser]=useState(null),[,bump]=useState(0);
+ const load=async u=>{const b=u.permissions.includes("dashboard:view")?await api("/api/dashboard/bundle"):{};
+  D={...EMPTY,...b};D.weekly={All:[],...D.weekly};D.pareto={All:{},...D.pareto};D.machine={All:{},...D.machine};D.severity={All:{},...D.severity};
+  const has=p=>u.permissions.includes(p),get=(p,path,d)=>has(p)?api(path):d;
+  [D.alerts,D.actions,D.thresholds,D.users,D.agree]=await Promise.all([get("alert:view","/api/alerts?open=1",[]),get("action:view","/api/corrective-actions",[]),get("dashboard:view","/api/thresholds",[]),get("user:manage","/api/users",[]),get("rootcause:train","/api/model/agreement",null)])};
+ const onLogin=async(username,password)=>{const r=await api("/api/auth/login",{method:"POST",body:{username,password}});TOKEN=r.token;await load(r.user);setUser(r.user)};
+ const reload=async()=>{await load(user);bump(n=>n+1)};
+ const logout=()=>{TOKEN=null;D=null;setUser(null)};
+ return user?h(App,{role:user.role,user,reload,logout}):h(Login,{onLogin})}
+ReactDOM.createRoot(document.getElementById("root")).render(h(Root));
+</script></body></html>
